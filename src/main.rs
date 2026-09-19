@@ -1,18 +1,27 @@
-use axum::{Router, routing::get};
+use crate::infrastructure::database::{create_pool, run_migrations};
+
+///***********************************
+/// Importing the modules
+///***********************************
+mod adapters;
+mod application;
+mod domain;
+mod error;
+mod infrastructure;
 
 #[tokio::main]
 async fn main() {
-    let app = Router::new().route("/health", get(health_check));
+    dotenvy::dotenv().ok();
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
+    let pool = create_pool(&database_url)
         .await
-        .unwrap();
+        .expect("Failed to create database pool");
 
-    println!("Server running on http://127.0.0.1:3000");
+    run_migrations(&pool)
+        .await
+        .expect("Failed to run database migrations");
 
-    axum::serve(listener, app).await.unwrap();
-}
-
-async fn health_check() -> &'static str {
-    "OK"
+    println!("Database initialized successfully");
 }

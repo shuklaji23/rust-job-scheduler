@@ -1,13 +1,4 @@
-use crate::infrastructure::database::{create_pool, run_migrations};
-
-///***********************************
-/// Importing the modules
-///***********************************
-mod adapters;
-mod application;
-mod domain;
-mod error;
-mod infrastructure;
+use job_scheduler::infrastructure::database::{create_pool, run_migrations};
 
 #[tokio::main]
 async fn main() {

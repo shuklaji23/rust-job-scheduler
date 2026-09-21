@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -19,6 +20,7 @@ impl PostgresJobRepository {
     }
 }
 
+#[async_trait]
 impl JobRepository for PostgresJobRepository {
     async fn save(&self, job: &Job) -> AppResult<()> {
         let record = JobRecord::try_from(job)?;

@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+use async_trait::async_trait;
 use chrono::{Duration, Utc};
 use job_scheduler::{
     application::{
@@ -21,6 +22,7 @@ impl MockRepository {
     }
 }
 
+#[async_trait]
 impl JobRepository for MockRepository {
     async fn save(&self, _job: &Job) -> AppResult<()> {
         Ok(())
@@ -75,6 +77,7 @@ impl MockExecutor {
     }
 }
 
+#[async_trait]
 impl JobExecutor for MockExecutor {
     async fn execute(&self, job: &Job) -> AppResult<()> {
         self.executed_jobs.lock().unwrap().push(job.id);
@@ -92,8 +95,8 @@ async fn run_once_executes_due_jobs() {
 
     let job_id = job.id;
 
-    let repository = MockRepository::new(vec![job]);
-    let executor = MockExecutor::new();
+    let repository = Arc::new(MockRepository::new(vec![job]));
+    let executor = Arc::new(MockExecutor::new());
 
     let executed_jobs = Arc::clone(&executor.executed_jobs);
 

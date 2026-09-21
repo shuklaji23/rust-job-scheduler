@@ -1,9 +1,11 @@
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
+use async_trait::async_trait;
 use chrono::Utc;
 use uuid::Uuid;
 
 use job_scheduler::{
+    adapters::outbound::executor::simple_executor::SimpleJobExecutor,
     application::{
         job_request::CreateJobRequest, job_service::JobService,
         ports::job_repository::JobRepository,
@@ -36,6 +38,7 @@ fn clone_job(job: &Job) -> Job {
     }
 }
 
+#[async_trait]
 impl JobRepository for MockJobRepository {
     async fn save(&self, job: &Job) -> AppResult<()> {
         self.jobs.lock().unwrap().push(Job {
@@ -99,13 +102,16 @@ impl JobRepository for MockJobRepository {
 
 #[tokio::test]
 async fn create_job_creates_and_saves_job() {
-    let repository = MockJobRepository::new();
-    let service = JobService::new(repository);
+    let repository = Arc::new(MockJobRepository::new());
+    let executor = Arc::new(SimpleJobExecutor);
+    let service = JobService::new(repository, executor);
 
     let scheduled_at = Utc::now();
     let temp = CreateJobRequest {
         name: "test-job".to_string(),
-        payload: serde_json::value::Value::String(r#"{"message":"hello"}"#.to_string()),
+        payload: serde_json::json!({
+            "message": "hello"
+        }),
         scheduled_at,
     };
     let job = service.create_job(temp).await.unwrap();
@@ -118,7 +124,8 @@ async fn create_job_creates_and_saves_job() {
 
 #[tokio::test]
 async fn get_job_returns_existing_job() {
-    let repository = MockJobRepository::new();
+    let repository = Arc::new(MockJobRepository::new());
+    let executor = Arc::new(SimpleJobExecutor);
 
     let job = Job::new(
         "test-job".to_string(),
@@ -128,7 +135,7 @@ async fn get_job_returns_existing_job() {
 
     repository.save(&job).await.unwrap();
 
-    let service = JobService::new(repository);
+    let service = JobService::new(repository, executor);
 
     let result = service.get_job(job.id).await.unwrap();
 
@@ -140,8 +147,9 @@ async fn get_job_returns_existing_job() {
 
 #[tokio::test]
 async fn get_job_returns_none_for_missing_job() {
-    let repository = MockJobRepository::new();
-    let service = JobService::new(repository);
+    let repository = Arc::new(MockJobRepository::new());
+    let executor = Arc::new(SimpleJobExecutor);
+    let service = JobService::new(repository, executor);
 
     let result = service.get_job(Uuid::new_v4()).await.unwrap();
 
@@ -150,7 +158,8 @@ async fn get_job_returns_none_for_missing_job() {
 
 #[tokio::test]
 async fn get_due_jobs_returns_only_due_jobs() {
-    let repository = MockJobRepository::new();
+    let repository = Arc::new(MockJobRepository::new());
+    let executor = Arc::new(SimpleJobExecutor);
 
     let due_job = Job::new(
         "due-job".to_string(),
@@ -167,7 +176,7 @@ async fn get_due_jobs_returns_only_due_jobs() {
     repository.save(&due_job).await.unwrap();
     repository.save(&future_job).await.unwrap();
 
-    let service = JobService::new(repository);
+    let service = JobService::new(repository, executor);
 
     let due_jobs = service.get_due_jobs().await.unwrap();
 
@@ -177,7 +186,8 @@ async fn get_due_jobs_returns_only_due_jobs() {
 
 #[tokio::test]
 async fn update_job_updates_existing_job() {
-    let repository = MockJobRepository::new();
+    let repository = Arc::new(MockJobRepository::new());
+    let executor = Arc::new(SimpleJobExecutor);
 
     let job = Job::new(
         "original".to_string(),
@@ -187,7 +197,7 @@ async fn update_job_updates_existing_job() {
 
     repository.save(&job).await.unwrap();
 
-    let service = JobService::new(repository);
+    let service = JobService::new(repository, executor);
 
     let mut updated_job = clone_job(&job);
     updated_job.name = "updated".to_string();
@@ -201,7 +211,8 @@ async fn update_job_updates_existing_job() {
 
 #[tokio::test]
 async fn delete_job_removes_existing_job() {
-    let repository = MockJobRepository::new();
+    let repository = Arc::new(MockJobRepository::new());
+    let executor = Arc::new(SimpleJobExecutor);
 
     let job = Job::new(
         "test-job".to_string(),
@@ -211,7 +222,7 @@ async fn delete_job_removes_existing_job() {
 
     repository.save(&job).await.unwrap();
 
-    let service = JobService::new(repository);
+    let service = JobService::new(repository, executor);
 
     service.delete_job(job.id).await.unwrap();
 

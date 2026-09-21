@@ -1,8 +1,9 @@
+use async_trait::async_trait;
 use uuid::Uuid;
 
 use crate::{domain::job::Job, error::AppResult};
 
-#[allow(async_fn_in_trait)]
+#[async_trait]
 pub trait JobRepository: Send + Sync {
     async fn save(&self, job: &Job) -> AppResult<()>;
 
